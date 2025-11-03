@@ -22,6 +22,12 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      - name: Restore tokens
+        run: |
+          mkdir -p /wyze_garmin_sync/tokens
+          echo "${{ secrets.oauth1 }}" > /wyze_garmin_sync/tokens/oauth1_token.json
+          echo "${{ secrets.oauth2 }}" > /wyze_garmin_sync/tokens/oauth2_token.json
+
       - name: Run sync script
         env:
           WYZE_USER: ${{ secrets.WYZE_USER }}
