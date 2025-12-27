@@ -8,6 +8,7 @@ import hashlib
 import garth
 from getpass import getpass
 import json
+from typing import Any
 
 WYZE_EMAIL = os.environ.get('WYZE_EMAIL')
 WYZE_PASSWORD = os.environ.get('WYZE_PASSWORD')
@@ -23,21 +24,27 @@ TOKENS_DIR = os.path.join(SCRIPT_DIR, "tokens")
 FITFILE_PATH = os.path.join(SCRIPT_DIR, "wyze_scale.fit")
 CKSUM_PATH = os.path.join(SCRIPT_DIR, "cksum.txt")
 
+def _write_secure_json(path: str, data: Any) -> None:
+    """Write JSON data to disk with restrictive permissions."""
+    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(data, f)
+
+
 def write_tokens_from_env():
     """If OAUTH1/OAUTH2 env vars are present, write them to token files for headless runs."""
     if not (GARTH_OAUTH1 or GARTH_OAUTH2):
         return
-    os.makedirs(TOKENS_DIR, exist_ok=True)
+    os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
     if GARTH_OAUTH1:
         try:
-            with open(os.path.join(TOKENS_DIR, "oauth1_token.json"), "w") as f:
-                json.dump(json.loads(GARTH_OAUTH1), f)
+            _write_secure_json(os.path.join(TOKENS_DIR, "oauth1_token.json"), json.loads(GARTH_OAUTH1))
         except Exception as exc:
             print(f"Failed to write oauth1_token.json from OAUTH1 env: {exc}")
     if GARTH_OAUTH2:
         try:
-            with open(os.path.join(TOKENS_DIR, "oauth2_token.json"), "w") as f:
-                json.dump(json.loads(GARTH_OAUTH2), f)
+            _write_secure_json(os.path.join(TOKENS_DIR, "oauth2_token.json"), json.loads(GARTH_OAUTH2))
         except Exception as exc:
             print(f"Failed to write oauth2_token.json from OAUTH2 env: {exc}")
 
@@ -55,16 +62,16 @@ def upload_to_garmin(file_path):
     try:
         garth.resume(TOKENS_DIR)
         garth.client.username
-    except:
+    except Exception:
         try:
-            os.makedirs(TOKENS_DIR, exist_ok=True)
+            os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
             garth.login(GARMIN_USERNAME, GARMIN_PASSWORD)
             garth.save(TOKENS_DIR)
-        except:
+        except Exception:
             email = input("Enter Garmin email address: ")
             password = getpass("Enter Garmin password: ")
             try:
-                os.makedirs(TOKENS_DIR, exist_ok=True)
+                os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
                 garth.login(email, password)
                 garth.save(TOKENS_DIR)
             except Exception as exc:
@@ -129,6 +136,15 @@ def generate_fit_file(scale):
     with open(FITFILE_PATH, "wb") as fitfile:
         fitfile.write(fit.getvalue())
 
+def calculate_checksum(path: str) -> str:
+    """Generate a SHA-256 checksum for the provided file."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def main():
     access_token = login_to_wyze()
     if access_token:
@@ -145,8 +161,7 @@ def main():
                 print("Fit data generated...")
 
                 # Calculate checksum of the fit file
-                with open(FITFILE_PATH, "rb") as fitfile:
-                    cksum = hashlib.md5(fitfile.read()).hexdigest()
+                cksum = calculate_checksum(FITFILE_PATH)
 
                 # Check if cksum.txt exists and read stored checksum
                 if os.path.exists(CKSUM_PATH):
