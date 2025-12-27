@@ -36,6 +36,8 @@ jobs:
           WYZE_API_KEY: ${{ secrets.WYZE_API_KEY }}
           Garmin_username: ${{ secrets.GARMIN_USERNAME }}
           Garmin_password: ${{ secrets.GARMIN_PASSWORD }}
+          OAUTH1: ${{ secrets.OAUTH1 }}
+          OAUTH2: ${{ secrets.OAUTH2 }}
         run: |
           python scale.py
 

@@ -7,6 +7,7 @@ from fit import FitEncoder_Weight
 import hashlib
 import garth
 from getpass import getpass
+import json
 
 WYZE_EMAIL = os.environ.get('WYZE_EMAIL')
 WYZE_PASSWORD = os.environ.get('WYZE_PASSWORD')
@@ -14,11 +15,31 @@ WYZE_KEY_ID = os.environ.get('WYZE_KEY_ID')
 WYZE_API_KEY = os.environ.get('WYZE_API_KEY')
 GARMIN_USERNAME = os.environ.get('Garmin_username')
 GARMIN_PASSWORD = os.environ.get('Garmin_password')
+GARTH_OAUTH1 = os.environ.get('OAUTH1')
+GARTH_OAUTH2 = os.environ.get('OAUTH2')
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TOKENS_DIR = os.path.join(SCRIPT_DIR, "tokens")
 FITFILE_PATH = os.path.join(SCRIPT_DIR, "wyze_scale.fit")
 CKSUM_PATH = os.path.join(SCRIPT_DIR, "cksum.txt")
+
+def write_tokens_from_env():
+    """If OAUTH1/OAUTH2 env vars are present, write them to token files for headless runs."""
+    if not (GARTH_OAUTH1 or GARTH_OAUTH2):
+        return
+    os.makedirs(TOKENS_DIR, exist_ok=True)
+    if GARTH_OAUTH1:
+        try:
+            with open(os.path.join(TOKENS_DIR, "oauth1_token.json"), "w") as f:
+                json.dump(json.loads(GARTH_OAUTH1), f)
+        except Exception as exc:
+            print(f"Failed to write oauth1_token.json from OAUTH1 env: {exc}")
+    if GARTH_OAUTH2:
+        try:
+            with open(os.path.join(TOKENS_DIR, "oauth2_token.json"), "w") as f:
+                json.dump(json.loads(GARTH_OAUTH2), f)
+        except Exception as exc:
+            print(f"Failed to write oauth2_token.json from OAUTH2 env: {exc}")
 
 def login_to_wyze():
     try:
@@ -30,6 +51,7 @@ def login_to_wyze():
         return None
 
 def upload_to_garmin(file_path):
+    write_tokens_from_env()
     try:
         garth.resume(TOKENS_DIR)
         garth.client.username
