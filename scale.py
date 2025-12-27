@@ -15,6 +15,11 @@ WYZE_API_KEY = os.environ.get('WYZE_API_KEY')
 GARMIN_USERNAME = os.environ.get('Garmin_username')
 GARMIN_PASSWORD = os.environ.get('Garmin_password')
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TOKENS_DIR = os.path.join(SCRIPT_DIR, "tokens")
+FITFILE_PATH = os.path.join(SCRIPT_DIR, "wyze_scale.fit")
+CKSUM_PATH = os.path.join(SCRIPT_DIR, "cksum.txt")
+
 def login_to_wyze():
     try:
         response = Client().login(email=WYZE_EMAIL, password=WYZE_PASSWORD, key_id=WYZE_KEY_ID, api_key=WYZE_API_KEY)
@@ -26,18 +31,20 @@ def login_to_wyze():
 
 def upload_to_garmin(file_path):
     try:
-        garth.resume('/wyze_garmin_sync/tokens')
+        garth.resume(TOKENS_DIR)
         garth.client.username
     except:
         try:
+            os.makedirs(TOKENS_DIR, exist_ok=True)
             garth.login(GARMIN_USERNAME, GARMIN_PASSWORD)
-            garth.save('/wyze_garmin_sync/tokens')
+            garth.save(TOKENS_DIR)
         except:
             email = input("Enter Garmin email address: ")
             password = getpass("Enter Garmin password: ")
             try:
+                os.makedirs(TOKENS_DIR, exist_ok=True)
                 garth.login(email, password)
-                garth.save('/wyze_garmin_sync/tokens')
+                garth.save(TOKENS_DIR)
             except Exception as exc:
                 print(repr(exc))
                 exit()
@@ -97,12 +104,11 @@ def generate_fit_file(scale):
         bmi = data.get('bmi'),
     )
     fit.finish()
-    with open("wyze_scale.fit", "wb") as fitfile:
+    with open(FITFILE_PATH, "wb") as fitfile:
         fitfile.write(fit.getvalue())
 
 def main():
     access_token = login_to_wyze()
-    os.chdir("/wyze_garmin_sync")
     if access_token:
         client = Client(token=access_token)
         for device in client.devices_list():
@@ -116,16 +122,13 @@ def main():
                 generate_fit_file(scale)
                 print("Fit data generated...")
 
-                fitfile_path = "/wyze_garmin_sync/wyze_scale.fit"
-                cksum_file_path = "/wyze_garmin_sync/cksum.txt"
-
                 # Calculate checksum of the fit file
-                with open(fitfile_path, "rb") as fitfile:
+                with open(FITFILE_PATH, "rb") as fitfile:
                     cksum = hashlib.md5(fitfile.read()).hexdigest()
 
                 # Check if cksum.txt exists and read stored checksum
-                if os.path.exists(cksum_file_path):
-                    with open(cksum_file_path, "r") as cksum_file:
+                if os.path.exists(CKSUM_PATH):
+                    with open(CKSUM_PATH, "r") as cksum_file:
                         stored_cksum = cksum_file.read().strip()
 
                     # Compare calculated checksum with stored checksum
@@ -134,20 +137,20 @@ def main():
                     else:
                         print("New measurement detected. Uploading file...")
                         # Upload the fit file to Garmin
-                        if upload_to_garmin(fitfile_path):
+                        if upload_to_garmin(FITFILE_PATH):
                             print("File uploaded successfully.")
                             # Update cksum.txt with the new checksum
-                            with open(cksum_file_path, "w") as cksum_file:
+                            with open(CKSUM_PATH, "w") as cksum_file:
                                 cksum_file.write(cksum)
                         else:
                             print("File upload failed.")
                 else:
                     print("No chksum detected. Uploading fit file and creating chksum...")
                     # Upload the fit file to Garmin
-                    if upload_to_garmin(fitfile_path):
+                    if upload_to_garmin(FITFILE_PATH):
                         print("File uploaded successfully.")
                         # Create cksum.txt and write the checksum
-                        with open(cksum_file_path, "w") as cksum_file:
+                        with open(CKSUM_PATH, "w") as cksum_file:
                             cksum_file.write(cksum)
                         print("cksum.txt created.")
                     else:
@@ -155,4 +158,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
