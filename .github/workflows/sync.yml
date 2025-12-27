@@ -30,12 +30,14 @@ jobs:
 
       - name: Run sync script
         env:
-          WYZE_USER: ${{ secrets.WYZE_USER }}
-          WYZE_PASS: ${{ secrets.WYZE_PASS }}
-          GARMIN_USER: ${{ secrets.GARMIN_USER }}
-          GARMIN_PASS: ${{ secrets.GARMIN_PASS }}
+          WYZE_EMAIL: ${{ secrets.WYZE_EMAIL }}
+          WYZE_PASSWORD: ${{ secrets.WYZE_PASSWORD }}
+          WYZE_KEY_ID: ${{ secrets.WYZE_KEY_ID }}
+          WYZE_API_KEY: ${{ secrets.WYZE_API_KEY }}
+          Garmin_username: ${{ secrets.GARMIN_USERNAME }}
+          Garmin_password: ${{ secrets.GARMIN_PASSWORD }}
         run: |
-          python fit.py
+          python scale.py
 
       - name: Notify authentication failure
         if: failure()
