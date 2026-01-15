@@ -1,2 +1,2 @@
 wyze_sdk
-garth
+garth<0.6
