@@ -28,7 +28,7 @@ jobs:
           echo "${{ secrets.oauth1 }}" > ./wyze_garmin_sync/tokens/oauth1_token.json
           echo "${{ secrets.oauth2 }}" > ./wyze_garmin_sync/tokens/oauth2_token.json
 
-      - name: Run sync script
+      - name: Run scale sync
         env:
           WYZE_EMAIL: ${{ secrets.WYZE_EMAIL }}
           WYZE_PASSWORD: ${{ secrets.WYZE_PASSWORD }}
@@ -40,6 +40,17 @@ jobs:
           OAUTH2: ${{ secrets.OAUTH2 }}
         run: |
           python scale.py
+
+      - name: Run blood pressure sync
+        env:
+          OMRON_EMAIL: ${{ secrets.OMRON_EMAIL }}
+          OMRON_PASSWORD: ${{ secrets.OMRON_PASSWORD }}
+          Garmin_username: ${{ secrets.GARMIN_USERNAME }}
+          Garmin_password: ${{ secrets.GARMIN_PASSWORD }}
+          OAUTH1: ${{ secrets.OAUTH1 }}
+          OAUTH2: ${{ secrets.OAUTH2 }}
+        run: |
+          python blood_pressure.py
 
       - name: Notify authentication failure
         if: failure()

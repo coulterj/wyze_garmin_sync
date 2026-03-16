@@ -30,4 +30,5 @@ Thumbs.db
 
 # Project specific
 cksum.txt
+bp_cksum.txt
 *.fit
