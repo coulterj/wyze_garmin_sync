@@ -82,7 +82,7 @@ def _garmin_resume_with_retry(max_retries=3):
             return True
         except Exception as exc:
             if "429" in str(exc) and attempt < max_retries - 1:
-                wait = 2 ** (attempt + 1)
+                wait = 30 * (attempt + 1)
                 print(f"  Rate limited by Garmin, retrying in {wait}s...")
                 time.sleep(wait)
             else:
