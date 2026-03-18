@@ -29,6 +29,7 @@ jobs:
           echo "${{ secrets.oauth2 }}" > ./wyze_garmin_sync/tokens/oauth2_token.json
 
       - name: Run scale sync
+        continue-on-error: true
         env:
           WYZE_EMAIL: ${{ secrets.WYZE_EMAIL }}
           WYZE_PASSWORD: ${{ secrets.WYZE_PASSWORD }}

@@ -7,9 +7,12 @@ import json
 import os
 from datetime import datetime, timezone
 
+
 import aiohttp
 import garth
 from getpass import getpass
+
+IS_CI = os.environ.get("CI") == "true"
 
 # Omron credentials
 OMRON_EMAIL = os.environ.get("OMRON_EMAIL")
@@ -90,18 +93,38 @@ async def fetch_bp_readings(session, token):
         return data.get("data", [])
 
 
+def _garmin_resume_with_retry(max_retries=3):
+    """Resume Garmin session, retrying on 429 rate limits."""
+    for attempt in range(max_retries):
+        try:
+            garth.resume(TOKENS_DIR)
+            garth.client.username
+            return True
+        except Exception as exc:
+            if "429" in str(exc) and attempt < max_retries - 1:
+                wait = 2 ** (attempt + 1)
+                print(f"  Rate limited by Garmin, retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+    return False
+
+
 def login_to_garmin():
     """Authenticate with Garmin Connect using garth."""
     write_tokens_from_env()
     try:
-        garth.resume(TOKENS_DIR)
-        garth.client.username
+        _garmin_resume_with_retry()
     except Exception:
         try:
             os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
             garth.login(GARMIN_USERNAME, GARMIN_PASSWORD)
             garth.save(TOKENS_DIR)
         except Exception:
+            if IS_CI:
+                raise RuntimeError(
+                    "Garmin auth failed in CI (token refresh and login both failed)."
+                )
             email = input("Enter Garmin email address: ")
             password = getpass("Enter Garmin password: ")
             try:

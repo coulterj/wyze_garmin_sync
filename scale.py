@@ -1,6 +1,7 @@
 #!/usr/local/bin/python3
 import math
 import os
+import time
 from wyze_sdk import Client
 from wyze_sdk.errors import WyzeApiError
 from fit import FitEncoder_Weight
@@ -10,19 +11,22 @@ from getpass import getpass
 import json
 from typing import Any
 
-WYZE_EMAIL = os.environ.get('WYZE_EMAIL')
-WYZE_PASSWORD = os.environ.get('WYZE_PASSWORD')
-WYZE_KEY_ID = os.environ.get('WYZE_KEY_ID')
-WYZE_API_KEY = os.environ.get('WYZE_API_KEY')
-GARMIN_USERNAME = os.environ.get('Garmin_username')
-GARMIN_PASSWORD = os.environ.get('Garmin_password')
-GARTH_OAUTH1 = os.environ.get('OAUTH1')
-GARTH_OAUTH2 = os.environ.get('OAUTH2')
+IS_CI = os.environ.get("CI") == "true"
+
+WYZE_EMAIL = os.environ.get("WYZE_EMAIL")
+WYZE_PASSWORD = os.environ.get("WYZE_PASSWORD")
+WYZE_KEY_ID = os.environ.get("WYZE_KEY_ID")
+WYZE_API_KEY = os.environ.get("WYZE_API_KEY")
+GARMIN_USERNAME = os.environ.get("Garmin_username")
+GARMIN_PASSWORD = os.environ.get("Garmin_password")
+GARTH_OAUTH1 = os.environ.get("OAUTH1")
+GARTH_OAUTH2 = os.environ.get("OAUTH2")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TOKENS_DIR = os.path.join(SCRIPT_DIR, "tokens")
 FITFILE_PATH = os.path.join(SCRIPT_DIR, "wyze_scale.fit")
 CKSUM_PATH = os.path.join(SCRIPT_DIR, "cksum.txt")
+
 
 def _write_secure_json(path: str, data: Any) -> None:
     """Write JSON data to disk with restrictive permissions."""
@@ -39,35 +43,65 @@ def write_tokens_from_env():
     os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
     if GARTH_OAUTH1:
         try:
-            _write_secure_json(os.path.join(TOKENS_DIR, "oauth1_token.json"), json.loads(GARTH_OAUTH1))
+            _write_secure_json(
+                os.path.join(TOKENS_DIR, "oauth1_token.json"), json.loads(GARTH_OAUTH1)
+            )
         except Exception as exc:
             print(f"Failed to write oauth1_token.json from OAUTH1 env: {exc}")
     if GARTH_OAUTH2:
         try:
-            _write_secure_json(os.path.join(TOKENS_DIR, "oauth2_token.json"), json.loads(GARTH_OAUTH2))
+            _write_secure_json(
+                os.path.join(TOKENS_DIR, "oauth2_token.json"), json.loads(GARTH_OAUTH2)
+            )
         except Exception as exc:
             print(f"Failed to write oauth2_token.json from OAUTH2 env: {exc}")
 
+
 def login_to_wyze():
     try:
-        response = Client().login(email=WYZE_EMAIL, password=WYZE_PASSWORD, key_id=WYZE_KEY_ID, api_key=WYZE_API_KEY)
-        access_token = response.get('access_token')
+        response = Client().login(
+            email=WYZE_EMAIL,
+            password=WYZE_PASSWORD,
+            key_id=WYZE_KEY_ID,
+            api_key=WYZE_API_KEY,
+        )
+        access_token = response.get("access_token")
         return access_token
     except WyzeApiError as e:
         print(f"Wyze API Error: {e}")
         return None
 
+
+def _garmin_resume_with_retry(max_retries=3):
+    """Resume Garmin session, retrying on 429 rate limits."""
+    for attempt in range(max_retries):
+        try:
+            garth.resume(TOKENS_DIR)
+            garth.client.username
+            return True
+        except Exception as exc:
+            if "429" in str(exc) and attempt < max_retries - 1:
+                wait = 2 ** (attempt + 1)
+                print(f"  Rate limited by Garmin, retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+    return False
+
+
 def upload_to_garmin(file_path):
     write_tokens_from_env()
     try:
-        garth.resume(TOKENS_DIR)
-        garth.client.username
+        _garmin_resume_with_retry()
     except Exception:
         try:
             os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
             garth.login(GARMIN_USERNAME, GARMIN_PASSWORD)
             garth.save(TOKENS_DIR)
         except Exception:
+            if IS_CI:
+                print("Garmin auth failed in CI (token refresh and login both failed).")
+                return False
             email = input("Enter Garmin email address: ")
             password = getpass("Enter Garmin password: ")
             try:
@@ -86,23 +120,24 @@ def upload_to_garmin(file_path):
         print(f"Garmin upload error: {e}")
         return False
 
+
 def generate_fit_file(scale):
     fit = FitEncoder_Weight()
     timestamp = math.trunc(scale.latest_records[0].measure_ts / 1000)
     weight_in_kg = scale.latest_records[0].weight * 0.45359237
 
     data_keys = {
-        'percent_fat': scale.latest_records[0].body_fat,
-        'percent_hydration': scale.latest_records[0].body_water,
-        'visceral_fat_mass': scale.latest_records[0].body_vfr,
-        'bone_mass': scale.latest_records[0].bone_mineral,
-        'muscle_mass': scale.latest_records[0].muscle,
-        'basal_met': scale.latest_records[0].bmr,
-        'physique_rating': scale.latest_records[0].body_type or 5,
-        'active_met': scale.latest_records[0].bmr,
-        'metabolic_age': scale.latest_records[0].metabolic_age,
-        'visceral_fat_rating': scale.latest_records[0].body_vfr,
-        'bmi': scale.latest_records[0].bmi
+        "percent_fat": scale.latest_records[0].body_fat,
+        "percent_hydration": scale.latest_records[0].body_water,
+        "visceral_fat_mass": scale.latest_records[0].body_vfr,
+        "bone_mass": scale.latest_records[0].bone_mineral,
+        "muscle_mass": scale.latest_records[0].muscle,
+        "basal_met": scale.latest_records[0].bmr,
+        "physique_rating": scale.latest_records[0].body_type or 5,
+        "active_met": scale.latest_records[0].bmr,
+        "metabolic_age": scale.latest_records[0].metabolic_age,
+        "visceral_fat_rating": scale.latest_records[0].body_vfr,
+        "bmi": scale.latest_records[0].bmi,
     }
     data = {}
     for key, value in data_keys.items():
@@ -110,31 +145,32 @@ def generate_fit_file(scale):
             data[key] = float(value)
         else:
             data[key] = None
-    if data.get('basal_met') is None:
-        data['active_met'] = None
+    if data.get("basal_met") is None:
+        data["active_met"] = None
     else:
-        data['active_met'] = int(float(scale.latest_records[0].bmr) * 1.25)
+        data["active_met"] = int(float(scale.latest_records[0].bmr) * 1.25)
     fit.write_file_info(time_created=timestamp)
     fit.write_file_creator()
     fit.write_device_info(timestamp=timestamp)
     fit.write_weight_scale(
         timestamp=timestamp,
         weight=weight_in_kg,
-        percent_fat = data.get('percent_fat'),
-        percent_hydration = data.get('percent_hydration'),
-        visceral_fat_mass = data.get('visceral_fat_mass'),
-        bone_mass = data.get('bone_mass'),
-        muscle_mass = data.get('muscle_mass'),
-        basal_met = data.get('basal_met'),
-        physique_rating = data.get('physique_rating'),
-        active_met = data.get('active_met'),
-        metabolic_age = data.get('metabolic_age'),
-        visceral_fat_rating = data.get('visceral_fat_rating'),
-        bmi = data.get('bmi'),
+        percent_fat=data.get("percent_fat"),
+        percent_hydration=data.get("percent_hydration"),
+        visceral_fat_mass=data.get("visceral_fat_mass"),
+        bone_mass=data.get("bone_mass"),
+        muscle_mass=data.get("muscle_mass"),
+        basal_met=data.get("basal_met"),
+        physique_rating=data.get("physique_rating"),
+        active_met=data.get("active_met"),
+        metabolic_age=data.get("metabolic_age"),
+        visceral_fat_rating=data.get("visceral_fat_rating"),
+        bmi=data.get("bmi"),
     )
     fit.finish()
     with open(FITFILE_PATH, "wb") as fitfile:
         fitfile.write(fit.getvalue())
+
 
 def calculate_checksum(path: str) -> str:
     """Generate a SHA-256 checksum for the provided file."""
@@ -182,7 +218,9 @@ def main():
                         else:
                             print("File upload failed.")
                 else:
-                    print("No chksum detected. Uploading fit file and creating chksum...")
+                    print(
+                        "No chksum detected. Uploading fit file and creating chksum..."
+                    )
                     # Upload the fit file to Garmin
                     if upload_to_garmin(FITFILE_PATH):
                         print("File uploaded successfully.")
@@ -192,6 +230,7 @@ def main():
                         print("cksum.txt created.")
                     else:
                         print("File upload failed.")
+
 
 if __name__ == "__main__":
     main()
