@@ -78,6 +78,7 @@ def _garmin_resume_with_retry(max_retries=3):
         try:
             garth.resume(TOKENS_DIR)
             garth.client.username
+            garth.save(TOKENS_DIR)
             return True
         except Exception as exc:
             if "429" in str(exc) and attempt < max_retries - 1:

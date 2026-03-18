@@ -42,6 +42,10 @@ def _write_secure_json(path, data):
 def write_tokens_from_env():
     if not (GARTH_OAUTH1 or GARTH_OAUTH2):
         return
+    oauth1_path = os.path.join(TOKENS_DIR, "oauth1_token.json")
+    oauth2_path = os.path.join(TOKENS_DIR, "oauth2_token.json")
+    if os.path.exists(oauth1_path) and os.path.exists(oauth2_path):
+        return
     os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
     if GARTH_OAUTH1:
         try:
@@ -99,6 +103,7 @@ def _garmin_resume_with_retry(max_retries=3):
         try:
             garth.resume(TOKENS_DIR)
             garth.client.username
+            garth.save(TOKENS_DIR)
             return True
         except Exception as exc:
             if "429" in str(exc) and attempt < max_retries - 1:
