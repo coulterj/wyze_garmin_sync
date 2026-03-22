@@ -95,14 +95,16 @@ def upload_to_garmin(file_path):
     try:
         _garmin_resume_with_retry()
     except Exception:
+        if IS_CI:
+            print(
+                "Garmin auth failed in CI (token resume failed). Update OAUTH1/OAUTH2 secrets."
+            )
+            return False
         try:
             os.makedirs(TOKENS_DIR, mode=0o700, exist_ok=True)
             garth.login(GARMIN_USERNAME, GARMIN_PASSWORD)
             garth.save(TOKENS_DIR)
         except Exception:
-            if IS_CI:
-                print("Garmin auth failed in CI (token refresh and login both failed).")
-                return False
             email = input("Enter Garmin email address: ")
             password = getpass("Enter Garmin password: ")
             try:
