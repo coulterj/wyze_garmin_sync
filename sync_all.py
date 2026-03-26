@@ -102,14 +102,15 @@ def main():
     print("=== Garmin Authentication ===")
     garmin_ok = login_to_garmin()
     if not garmin_ok:
-        print("Garmin authentication failed. Skipping uploads.")
+        print("Garmin authentication failed. Exiting.")
+        exit(1)
 
     # Run scale sync
     print("\n=== Scale Sync (Wyze -> Garmin) ===")
     try:
         from scale import run_sync as scale_sync
 
-        scale_sync(garmin_authed=garmin_ok)
+        scale_sync(garmin_authed=True)
     except Exception as e:
         print(f"Scale sync failed: {e}")
 
@@ -118,7 +119,7 @@ def main():
     try:
         from blood_pressure import run_sync as bp_sync
 
-        bp_sync(garmin_authed=garmin_ok)
+        bp_sync(garmin_authed=True)
     except Exception as e:
         print(f"Blood pressure sync failed: {e}")
 
