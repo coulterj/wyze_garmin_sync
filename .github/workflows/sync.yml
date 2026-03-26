@@ -22,22 +22,12 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run scale sync
-        continue-on-error: true
+      - name: Run all syncs
         env:
           WYZE_EMAIL: ${{ secrets.WYZE_EMAIL }}
           WYZE_PASSWORD: ${{ secrets.WYZE_PASSWORD }}
           WYZE_KEY_ID: ${{ secrets.WYZE_KEY_ID }}
           WYZE_API_KEY: ${{ secrets.WYZE_API_KEY }}
-          Garmin_username: ${{ secrets.GARMIN_USERNAME }}
-          Garmin_password: ${{ secrets.GARMIN_PASSWORD }}
-          OAUTH1: ${{ secrets.OAUTH1 }}
-          OAUTH2: ${{ secrets.OAUTH2 }}
-        run: |
-          python scale.py
-
-      - name: Run blood pressure sync
-        env:
           OMRON_EMAIL: ${{ secrets.OMRON_EMAIL }}
           OMRON_PASSWORD: ${{ secrets.OMRON_PASSWORD }}
           Garmin_username: ${{ secrets.GARMIN_USERNAME }}
@@ -45,7 +35,7 @@ jobs:
           OAUTH1: ${{ secrets.OAUTH1 }}
           OAUTH2: ${{ secrets.OAUTH2 }}
         run: |
-          python blood_pressure.py
+          python sync_all.py
 
       - name: Notify authentication failure
         if: failure()

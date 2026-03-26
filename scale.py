@@ -184,55 +184,77 @@ def calculate_checksum(path: str) -> str:
     return digest.hexdigest()
 
 
-def main():
+def _upload_fit(file_path, garmin_authed):
+    """Upload FIT file to Garmin. If garmin_authed, skip auth (already done)."""
+    if not garmin_authed:
+        upload_to_garmin(file_path)
+        return
+    try:
+        with open(file_path, "rb") as f:
+            garth.client.upload(f)
+        return True
+    except Exception as e:
+        print(f"Garmin upload error: {e}")
+        return False
+
+
+def run_sync(garmin_authed=False):
+    """Run scale sync. If garmin_authed=True, skip Garmin auth (caller already did it)."""
     access_token = login_to_wyze()
-    if access_token:
-        client = Client(token=access_token)
-        for device in client.devices_list():
-            if device.type == "WyzeScale":
-                scale = client.scales.info(device_mac=device.mac)
-                print(f"Scale found with MAC {device.mac}. Latest record is:")
-                print(scale.latest_records)
-                print(f"Body Type: {scale.latest_records[0].body_type or 5}")
+    if not access_token:
+        print("Wyze login failed.")
+        return False
 
-                print("Generating fit data...")
-                generate_fit_file(scale)
-                print("Fit data generated...")
+    client = Client(token=access_token)
+    for device in client.devices_list():
+        if device.type == "WyzeScale":
+            scale = client.scales.info(device_mac=device.mac)
+            print(f"Scale found with MAC {device.mac}. Latest record is:")
+            print(scale.latest_records)
+            print(f"Body Type: {scale.latest_records[0].body_type or 5}")
 
-                # Calculate checksum of the fit file
-                cksum = calculate_checksum(FITFILE_PATH)
+            print("Generating fit data...")
+            generate_fit_file(scale)
+            print("Fit data generated...")
 
-                # Check if cksum.txt exists and read stored checksum
-                if os.path.exists(CKSUM_PATH):
-                    with open(CKSUM_PATH, "r") as cksum_file:
-                        stored_cksum = cksum_file.read().strip()
+            cksum = calculate_checksum(FITFILE_PATH)
 
-                    # Compare calculated checksum with stored checksum
-                    if cksum == stored_cksum:
-                        print("No new measurement")
-                    else:
-                        print("New measurement detected. Uploading file...")
-                        # Upload the fit file to Garmin
-                        if upload_to_garmin(FITFILE_PATH):
-                            print("File uploaded successfully.")
-                            # Update cksum.txt with the new checksum
-                            with open(CKSUM_PATH, "w") as cksum_file:
-                                cksum_file.write(cksum)
-                        else:
-                            print("File upload failed.")
+            if os.path.exists(CKSUM_PATH):
+                with open(CKSUM_PATH, "r") as cksum_file:
+                    stored_cksum = cksum_file.read().strip()
+
+                if cksum == stored_cksum:
+                    print("No new measurement")
                 else:
-                    print(
-                        "No chksum detected. Uploading fit file and creating chksum..."
-                    )
-                    # Upload the fit file to Garmin
-                    if upload_to_garmin(FITFILE_PATH):
+                    print("New measurement detected. Uploading file...")
+                    if garmin_authed:
+                        success = _upload_fit(FITFILE_PATH, garmin_authed=True)
+                    else:
+                        success = upload_to_garmin(FITFILE_PATH)
+                    if success:
                         print("File uploaded successfully.")
-                        # Create cksum.txt and write the checksum
                         with open(CKSUM_PATH, "w") as cksum_file:
                             cksum_file.write(cksum)
-                        print("cksum.txt created.")
                     else:
                         print("File upload failed.")
+            else:
+                print("No chksum detected. Uploading fit file and creating chksum...")
+                if garmin_authed:
+                    success = _upload_fit(FITFILE_PATH, garmin_authed=True)
+                else:
+                    success = upload_to_garmin(FITFILE_PATH)
+                if success:
+                    print("File uploaded successfully.")
+                    with open(CKSUM_PATH, "w") as cksum_file:
+                        cksum_file.write(cksum)
+                    print("cksum.txt created.")
+                else:
+                    print("File upload failed.")
+    return True
+
+
+def main():
+    run_sync(garmin_authed=False)
 
 
 if __name__ == "__main__":

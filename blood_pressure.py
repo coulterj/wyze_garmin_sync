@@ -197,13 +197,14 @@ async def fetch_omron_readings():
         return readings
 
 
-def main():
+def run_sync(garmin_authed=False):
+    """Run BP sync. If garmin_authed=True, skip Garmin auth (caller already did it)."""
     # Fetch from Omron
     readings = asyncio.run(fetch_omron_readings())
 
     if not readings:
         print("No blood pressure readings found.")
-        return
+        return False
 
     # Check for new data
     cksum = calculate_checksum(readings)
@@ -212,11 +213,12 @@ def main():
             stored = f.read().strip()
         if cksum == stored:
             print("No new blood pressure measurements.")
-            return
+            return True
 
-    # Login to Garmin
-    print("Logging in to Garmin Connect...")
-    login_to_garmin()
+    # Login to Garmin (skip if already authenticated)
+    if not garmin_authed:
+        print("Logging in to Garmin Connect...")
+        login_to_garmin()
 
     # Upload the most recent reading
     latest = max(readings, key=lambda r: r.get("measurementDate", 0))
@@ -226,8 +228,14 @@ def main():
         with open(BP_CKSUM_PATH, "w") as f:
             f.write(cksum)
         print("Blood pressure sync complete.")
+        return True
     except Exception as e:
         print(f"Upload failed: {e}")
+        return False
+
+
+def main():
+    run_sync(garmin_authed=False)
 
 
 if __name__ == "__main__":
