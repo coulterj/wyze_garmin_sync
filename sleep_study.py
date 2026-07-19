@@ -64,7 +64,6 @@ def _collect_sleep(day):
             "awake_count": dto.awake_count,
             "nap_min": _min(dto.nap_time_seconds),
             "resp_avg": dto.average_respiration_value,
-            "spo2_avg": dto.average_sp_o2_value,
             "sleep_stress": dto.avg_sleep_stress,
         }
     )
@@ -125,10 +124,26 @@ def _collect_bp(day):
     }
 
 
+def _collect_spo2(day):
+    """Overnight pulse-ox: sleep SpO2 average, lowest, and desaturation events."""
+    try:
+        r = garth.client.connectapi(f"/wellness-service/wellness/dailySpo2/{day}")
+    except Exception:
+        return {}
+    if not isinstance(r, dict):
+        return {}
+    return {
+        "spo2_avg": r.get("averageSpO2"),
+        "spo2_low": r.get("lowestSpO2"),
+        "spo2_events": r.get("numberOfEventsBelowThreshold"),
+    }
+
+
 def collect_day(day, display_name):
     """Gather every metric for a single calendar date into one flat dict."""
     row = {"date": day}
     row.update(_collect_sleep(day))
+    row.update(_collect_spo2(day))
     row.update(_collect_hrv(day))
     row.update(_collect_daily_summary(day, display_name))
     row.update(_collect_bp(day))
