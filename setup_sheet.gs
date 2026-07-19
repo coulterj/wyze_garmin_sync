@@ -233,7 +233,7 @@ function buildDashboardSheet_(ss, token) {
 
   // --- "Last night" card ---
   sh.getRange("B5").setValue("LAST NIGHT").setFontWeight("bold").setFontColor("#607d8b");
-  sh.getRange("B6").setFormula("=IFERROR(MAX(Garmin!A2:A),\"(no data yet)\")")
+  sh.getRange("B6").setFormula("=IF(COUNT(Garmin!A2:A)=0,\"(no data yet)\",MAX(Garmin!A2:A))")
     .setNumberFormat("dddd, mmm d").setFontSize(14).setFontWeight("bold");
 
   // Big Tylenol banner (merged).
