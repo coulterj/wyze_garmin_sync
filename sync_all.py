@@ -123,6 +123,15 @@ def main():
     except Exception as e:
         print(f"Blood pressure sync failed: {e}")
 
+    # Push sleep-study metrics (sleep, naps, HRV, RHR, stress, BP) to the sheet
+    print("\n=== Sleep Study Metrics (Garmin -> Sheet) ===")
+    try:
+        from sleep_study import run_sync as sleep_sync
+
+        sleep_sync(garmin_authed=True)
+    except Exception as e:
+        print(f"Sleep study sync failed: {e}")
+
 
 if __name__ == "__main__":
     main()

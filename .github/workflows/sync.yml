@@ -34,6 +34,8 @@ jobs:
           Garmin_password: ${{ secrets.GARMIN_PASSWORD }}
           OAUTH1: ${{ secrets.OAUTH1 }}
           OAUTH2: ${{ secrets.OAUTH2 }}
+          SHEET_WEBHOOK_URL: ${{ secrets.SHEET_WEBHOOK_URL }}
+          SHEET_WEBHOOK_TOKEN: ${{ secrets.SHEET_WEBHOOK_TOKEN }}
         run: |
           python sync_all.py
 
