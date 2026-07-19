@@ -1,3 +1,4 @@
 wyze_sdk
 garth<0.6
 aiohttp
+requests
