@@ -98,13 +98,24 @@ function setUp() {
 
   ss.setActiveSheet(ss.getSheetByName(DASH_SHEET));
 
-  SpreadsheetApp.getUi().alert(
-    "Sleep study sheet is ready.\n\n" +
-    "YOUR WEBHOOK TOKEN (copy this into GitHub secret SHEET_WEBHOOK_TOKEN):\n\n" +
-    token +
-    "\n\nNext: Deploy -> New deployment -> Web app (Execute as Me, Access Anyone), " +
-    "then copy the Web app URL into GitHub secret SHEET_WEBHOOK_URL."
-  );
+  // Log the token too (survives even if the alert dialog is missed).
+  Logger.log("WEBHOOK TOKEN (SHEET_WEBHOOK_TOKEN): " + token);
+  try {
+    SpreadsheetApp.getUi().alert(
+      "Sleep study sheet is ready.\n\n" +
+      "YOUR WEBHOOK TOKEN (copy this into GitHub secret SHEET_WEBHOOK_TOKEN):\n\n" +
+      token +
+      "\n\nNext: Deploy -> New deployment -> Web app (Execute as Me, Access Anyone), " +
+      "then copy the Web app URL into GitHub secret SHEET_WEBHOOK_URL."
+    );
+  } catch (e) {
+    // No UI context (e.g. run headless) - the token is in the log and via showToken().
+  }
+}
+
+/** Re-print the webhook token to the Execution log any time you need it. */
+function showToken() {
+  Logger.log("TOKEN: " + PropertiesService.getScriptProperties().getProperty("WEBHOOK_TOKEN"));
 }
 
 function getOrCreateToken_() {
